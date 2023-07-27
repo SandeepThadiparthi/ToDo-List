@@ -1,145 +1,83 @@
-const express =require("express");
-const app = express();
+const express = require("express");
 const bodyParser = require("body-parser");
+const ejs = require("ejs");
+const { forEach } = require("lodash");
+const e = require("express");
+const app = express();
 const _ = require('lodash');
-const mongoose = require("mongoose");
-app.use(bodyParser.urlencoded({extended:true}));
+const mongoose = require("mongoose")
 app.set('view engine', 'ejs');
+mongoose.connect(process.env.URL);
+app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
-require('dotenv').config();
-const date = require(__dirname+"/date.js");
+require('dotenv').config()
 
-let day = date.getDate();
-const mongoDBURL = process.env.URL;
-
-mongoose.connect(mongoDBURL);
-
-const listSchema = {
-    name : String
+const djSchema = {
+  title:String,
+  post:String
 };
-const Item = new mongoose.model("Item",listSchema);
-
-const list = {
-    name:String,
-    items : [listSchema]
-}
-const List = mongoose.model("List",list);
-
-const item1 = new Item({
-    name:"Welcome to ToDO List",
-})
-const item2 = new Item({
-    name:"Press '+' to add new items",
-})
-const item3 = new Item({
-    name:"New items will be displayed",
-})
-const item4 = new Item ({
-    name:"<--- Press this to delete an Item",
-})
-
-let defaultItems = [item1,item2,item3,item4];
+const Blog = mongoose.model("Blog",djSchema);
 
 
+
+const homeStartingContent = "Lacus vel facilisis volutpat est velit egestas dui id ornare. Semper auctor neque vitae tempus quam. Sit amet cursus sit amet dictum sit amet justo. Viverra tellus in hac habitasse. Imperdiet proin fermentum leo vel orci porta. Donec ultrices tincidunt arcu non sodales neque sodales ut. Mattis molestie a iaculis at erat pellentesque adipiscing. Magnis dis parturient montes nascetur ridiculus mus mauris vitae ultricies. Adipiscing elit ut aliquam purus sit amet luctus venenatis lectus. Ultrices vitae auctor eu augue ut lectus arcu bibendum at. Odio euismod lacinia at quis risus sed vulputate odio ut. Cursus mattis molestie a iaculis at erat pellentesque adipiscing.";
+const aboutContent = "Hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Dictumst vestibulum rhoncus est pellentesque elit ullamcorper. Non diam phasellus vestibulum lorem sed. Platea dictumst quisque sagittis purus sit. Egestas sed sed risus pretium quam vulputate dignissim suspendisse. Mauris in aliquam sem fringilla. Semper risus in hendrerit gravida rutrum quisque non tellus orci. Amet massa vitae tortor condimentum lacinia quis vel eros. Enim ut tellus elementum sagittis vitae. Mauris ultrices eros in cursus turpis massa tincidunt dui.";
+const contactContent = "Email  : Sandeepthadiparthi@gmail.com";
 
 app.get("/",function(req,res){
-    Item.find({}).then(function(items){
-        if (items.length === 0){
-            Item.insertMany(defaultItems).then(()=> {
-                console.log("Successfully Inserted");
-            })
-            .catch((error) => {
-                console.error('Error performing operations:', error);
-                mongoose.connection.close();
-            });
-            res.redirect("/");
-        }
-        else{
-            res.render('list',{listTitle:day,newListItem:items}); 
-        }
-    })
+  Blog.find({}).then((foundList) => {
+    res.render("home",{homeContent:homeStartingContent,posts:foundList})
+  });
 });
-
-
-app.get("/:customListName",function(req,res){
-    const customListName = _.capitalize(req.params.customListName);
-    List.findOne({name: customListName}).then(function(foundList){
-        if(!foundList){
-            const list = new List({
-                name: customListName,
-                items : defaultItems
-            });
-            list.save();
-            res.redirect("/"+ customListName);
-        }
-        else{
-            res.render('list',{listTitle:customListName,newListItem: foundList.items});
-        }
-    });
-
-})
-
-app.post("/",function(req,res){
-    // if(req.body.list === "Work"){
-    //     workItems.push(req.body.data);
-    //     res.redirect("/work");
-    // }
-    // else{
-    //     todos.push(req.body.data);
-    //     res.redirect("/");
-    // }
-    const itemName = req.body.data;
-    const listName = req.body.list;
-    const item = new Item({
-        name: itemName
-    });
-
-    if (listName == day){
-        item.save();
-        res.redirect("/");
-    }else{
-        List.findOne({name:listName}).then((foundList) => {
-            foundList.items.push(item);
-            foundList.save();
-            res.redirect("/"+listName);
-        });
-    }
-
-    
-    
-});
-
-
-
-app.post("/delete",function(req,res){
-    const itemId = req.body.checkbox;
-    const listName = req.body.listName
-    console.log(itemId);
-    console.log(listName);
-    if(listName == day){
-        Item.findByIdAndRemove(itemId).then(function(){
-            console.log("Successfully Removed Item");
-            res.redirect("/");
-        })
-        .catch((error) => {
-            console.error('Error performing operations:', error);
-            mongoose.connection.close();
-        });
-    }
-    else {
-        List.findOneAndUpdate({name: listName},{ $pull: { items : {_id : itemId} } }).then(function(){
-            console.log("Successfully Removed Item");
-            res.redirect("/"+listName);
-        })
-        .catch((error) => {
-            console.error('Error performing operations:', error);
-            mongoose.connection.close();
-        });
-    }
   
 
-})
 
-app.listen(process.env.PORT || 3000,function(){
-    console.log("Server is up at 3000 port");
+app.get("/about",function(req,res){
+  res.render("about",{aboutContent:aboutContent});
+});
+
+
+app.get("/contact",function(req,res){
+  res.render("contact",{contactContent:contactContent});
+});
+
+app.get("/posts/:id",function(req,res){
+  let requestedTitle = req.params.id;
+
+    Blog.findOne({_id:requestedTitle}).then((foundList) => {
+      res.render("post",{postTitle:foundList,cont:foundList});
+  })
+  
+});
+
+
+
+
+app.get("/compose",function(req,res){
+  res.render("compose");
+});
+
+
+app.post("/compose",function(req,res){
+  let postBody = req.body.postBody;
+  let postTitle = req.body.postTitle;
+const postt = new Blog ({
+  title:postTitle,
+  post:postBody
 })
+postt.save();
+res.redirect("/");
+  
+});
+
+
+
+
+
+
+
+
+
+app.listen(3000, function() {
+  console.log("Server started on port 3000");
+});
